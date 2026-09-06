@@ -1,10 +1,11 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ANCQ - Gestion, Traçabilité & Périssabilité des Réactifs</title>
+    <!-- Ingestion jsPDF pour la génération automatique du Bon de Décharge -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -135,27 +136,7 @@
             <form onsubmit="authentifierUtilisateur(event)">
                 <div class="form-group">
                     <label>Sélectionner votre Compte Utilisateur</label>
-                    <select id="login-user-select" onchange="majIdentifiantAuto()">
-                        <optgroup label="Saisie des Entrées (Gestion du Stock)">
-                            <option value="domingo">DOMINGO AHOKPOSSI Aloyimi — Responsable Stock</option>
-                        </optgroup>
-                        <optgroup label="Expression de Besoin / Utilisateurs Paillasse">
-                            <option value="adjagboni">ADJAGBONI Aristide — C/S Physico-chimie Produits de Santé</option>
-                            <option value="bio">BIO BAKARY Aïssatou — C/S Dispositif Médicaux</option>
-                            <option value="aglossi">AGLOSSI Maxime* — C/D Analyses Physico-chimiques</option>
-                            <option value="dasilva">Da-SILVA Karimath — C/D Analyses Pharmacotechniques</option>
-                            <option value="ologou">OLOGOU Prisca* — Analyste</option>
-                            <option value="degbo">DEGBO Diane — Analyste</option>
-                            <option value="doussoh">DOUSSOH Ulrich — Analyste</option>
-                            <option value="wekpon">WEKPON Honorat — Analyste</option>
-                        </optgroup>
-                        <optgroup label="Validation des Sorties">
-                            <option value="adjakidje">ADJAKIDJE Parfait — Directeur DCQPS (1er Niveau Val.)</option>
-                            <option value="daouda">DAOUDA Mohammed — Directeur DCQE (1er Niveau Val.)</option>
-                            <option value="sokpin">SOKPIN Mathieu — Dir. Admin & Finances (2ème Niveau Val.)</option>
-                            <option value="yemoa">YEMOA Achille — Directeur Général (3ème Niveau Val.)</option>
-                        </optgroup>
-                    </select>
+                    <select id="login-user-select" onchange="majIdentifiantAuto()"></select>
                 </div>
                 <div class="form-group">
                     <label>E-mail Institutionnel</label>
@@ -175,7 +156,7 @@
         <header>
             <div>
                 <h1 style="margin:0; font-size:1.3rem;">Gestion, Traçabilité & Péremption des Réactifs</h1>
-                <span style="font-size:0.8rem; opacity:0.85;">ANCQ - Agence Nationale de Contrôle Quality</span>
+                <span style="font-size:0.8rem; opacity:0.85;">ANCQ - Agence Nationale de Contrôle Qualité</span>
             </div>
             <div class="user-badge">
                 <span>👤 <strong id="user-display-name">-</strong> (<span id="user-display-role">-</span>)</span>
@@ -200,18 +181,18 @@
             <button class="tab-btn" onclick="changerOnglet('ong-paillasse', event)">🧪 Registre Usage Paillasse</button>
             <button class="tab-btn" onclick="changerOnglet('ong-circuit', event)">⌛ Validation des Sorties</button>
             <button class="tab-btn" onclick="changerOnglet('ong-catalogue', event)">📦 Stock Central & Alertes Péremption</button>
+            <button class="tab-btn role-admin role-hidden" onclick="changerOnglet('ong-admin', event)">👥 Gestion des Employés</button>
         </div>
 
         <div class="container">
 
-            <!-- ONGLET 1 : JOURNAL DE TRAÇABILITÉ GÉNÉRAL (MOUVEMENTS ENTRÉE/SORTIE) -->
+            <!-- ONGLET 1 : JOURNAL DE TRAÇABILITÉ GÉNÉRAL -->
             <div id="ong-journal" class="tab-content active">
                 <div style="margin-bottom:1rem;">
                     <h3 style="margin:0; color:var(--primary);">📜 Journal de Traçabilité Général (Mouvements d'entrée/sortie)</h3>
                     <small style="color:#64748b;">Historique immuable et horodaté de toutes les réceptions et sorties de stock.</small>
                 </div>
 
-                <!-- BARRE DE RECHERCHE EXACTE PAR TECHNICIEN / RÉACTIF -->
                 <div class="filter-bar">
                     <input type="text" id="journal-filter-tech" placeholder="Filtrer par technicien..." oninput="filtrerJournal()" style="width: 280px;">
                     <input type="text" id="journal-filter-reactif" placeholder="Filtrer par réactif..." oninput="filtrerJournal()" style="width: 320px;">
@@ -241,10 +222,17 @@
             <div id="ong-paillasse" class="tab-content">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:1rem;">
                     <div>
-                        <h3 style="margin:0; color:var(--primary);">Registre Traçabilité Paillasse (Utilisateurs Réels & Transferts)</h3>
-                        <small style="color:#64748b;">Suivi nominatif des flacons ouverts et du partage inter-services.</small>
+                        <h3 style="margin:0; color:var(--primary);">Registre Traçabilité Paillasse & Prélèvements</h3>
+                        <small style="color:#64748b;">Suivi des ouvertures, prélèvements, péremption après ouverture et analyses.</small>
                     </div>
-                    <button class="btn btn-purple" onclick="ouvrirModalPaillasse()">🧪 Ouvrir un Nouveau Flacon à la Paillasse</button>
+                    <button class="btn btn-purple" onclick="ouvrirModalPaillasse()">🧪 Enregistrer un Prélèvement / Ouverture</button>
+                </div>
+
+                <!-- FILTRE RECHERCHE DE PAILLASSE PAR ANALYSE ET RÉACTIF -->
+                <div class="filter-bar">
+                    <strong>🔍 Recherche Paillasse :</strong>
+                    <input type="text" id="paillasse-filter-analyse" placeholder="Filtrer par analyse..." oninput="chargerDonnees()" style="width: 250px;">
+                    <input type="text" id="paillasse-filter-reactif" placeholder="Filtrer par réactif..." oninput="chargerDonnees()" style="width: 250px;">
                 </div>
 
                 <div class="table-card">
@@ -253,9 +241,10 @@
                             <tr>
                                 <th>Réactif & N° Lot</th>
                                 <th>Analyste / Utilisateur</th>
-                                <th>Date d'Ouverture</th>
-                                <th>Date de Fin d'Utilisation</th>
-                                <th>Observations & Partage Inter-services</th>
+                                <th>Dates (Prélèvement & Péremption Ouverture)</th>
+                                <th>Quantité Prélevée</th>
+                                <th>Analyse Concernée</th>
+                                <th>Observations (Modifiable)</th>
                                 <th>Statut & Action</th>
                             </tr>
                         </thead>
@@ -269,7 +258,7 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:1rem;">
                     <div>
                         <h3 style="margin:0; color:var(--primary);">Validation des Sorties (3 Niveaux de Validation)</h3>
-                        <small style="color:#64748b;">Suivi du processus d'approbation selon les règles institutionnelles.</small>
+                        <small style="color:#64748b;">Suivi du processus d'approbation et génération des bons de décharge.</small>
                     </div>
                     <button class="btn btn-warning" onclick="ouvrirModalDemande()">📤 Expression de Besoin (Nouvelle Sortie)</button>
                 </div>
@@ -281,8 +270,8 @@
                                 <th>N° & Date</th>
                                 <th>Réactif & Quantité</th>
                                 <th>Demandeur</th>
-                                <th style="width: 45%;">Circuit de Validation des Sorties</th>
-                                <th>Action Responsable</th>
+                                <th style="width: 40%;">Circuit de Validation des Sorties</th>
+                                <th>Action Responsable / PDF</th>
                             </tr>
                         </thead>
                         <tbody id="table-demandes"></tbody>
@@ -300,7 +289,6 @@
                     </div>
                 </div>
 
-                <!-- FILTRAGE COMBINÉ DANGEROSITÉ ET PÉREMPTION -->
                 <div class="filter-bar">
                     <strong>⏳ État Péremption :</strong>
                     <select id="filter-exp" onchange="chargerDonnees()">
@@ -348,13 +336,40 @@
                 </div>
             </div>
 
+            <!-- ONGLET 5 : ADMINISTRATION / GESTION DES EMPLOYÉS -->
+            <div id="ong-admin" class="tab-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:1rem;">
+                    <div>
+                        <h3 style="margin:0; color:var(--primary);">👥 Administration & Gestion des Employés</h3>
+                        <small style="color:#64748b;">Espace réservé au Directeur Général et à la CCSMQ (Mme HAHOUANDJINOU).</small>
+                    </div>
+                    <button class="btn btn-purple" onclick="ouvrirModalEmploye()">➕ Ajouter un Employé</button>
+                </div>
+
+                <div class="table-card">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Identifiant</th>
+                                <th>Nom & Prénom</th>
+                                <th>Fonction / Rôle</th>
+                                <th>E-mail Institutionnel</th>
+                                <th>Niveau de Signatures</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-employes"></tbody>
+                    </table>
+                </div>
+            </div>
+
         </div>
     </div>
 
-    <!-- MODALE 1 : OUVERTURE PAILLASSE -->
+    <!-- MODALE 1 : PRÉLÈVEMENT & OUVERTURE PAILLASSE -->
     <div id="modalPaillasse" class="modal">
         <div class="modal-content">
-            <h3 style="color:var(--primary); margin-top:0;">Enregistrement d'Usage Flacon à la Paillasse</h3>
+            <h3 style="color:var(--primary); margin-top:0;">Prélèvement & Enregistrement Paillasse</h3>
             <form onsubmit="enregistrerOuverturePaillasse(event)">
                 <div class="form-group">
                     <label>Réactif du Stock Central</label>
@@ -362,19 +377,27 @@
                 </div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div class="form-group"><label>N° de Lot</label><input type="text" id="pail-lot" readonly style="background:#f1f5f9;"></div>
-                    <div class="form-group"><label>Date Première Ouverture</label><input type="datetime-local" id="pail-date-ouverture" required></div>
+                    <div class="form-group"><label>Date & Heure du Prélèvement</label><input type="datetime-local" id="pail-date-prelevement" required></div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div class="form-group"><label>Quantité Prélevée (ex: 50 ml / 2 flacons)</label><input type="text" id="pail-qte" placeholder="ex: 100 mL" required></div>
+                    <div class="form-group"><label>Délai de Conservation Après Ouverture (en jours)</label><input type="number" id="pail-delai-ouverture" value="30" min="1" required></div>
+                </div>
+                <div class="form-group">
+                    <label>Analyse pour laquelle le réactif a été utilisé</label>
+                    <input type="text" id="pail-analyse" placeholder="ex: Dosage Physico-Chimique Paracétamol Lot B20" required>
                 </div>
                 <div class="form-group">
                     <label>Analyste / Utilisateur en Paillasse</label>
                     <select id="pail-analyste-select"></select>
                 </div>
                 <div class="form-group">
-                    <label>Observation & Circulation / Partage Inter-Services</label>
-                    <textarea id="pail-observation" rows="3" placeholder="Ex: Réactif demandé par le service Physico-chimie, transféré temporairement au service DCQE pour analyses..."></textarea>
+                    <label>Observation & Remarques</label>
+                    <textarea id="pail-observation" rows="3" placeholder="Ex: Flacon entamé, partagé avec la section microbiologie..."></textarea>
                 </div>
                 <div style="text-align: right; margin-top:1rem;">
                     <button type="button" class="btn btn-secondary" onclick="fermerModales()">Annuler</button>
-                    <button type="submit" class="btn btn-purple">Mettre en Service en Paillasse</button>
+                    <button type="submit" class="btn btn-purple">Valider le Prélèvement</button>
                 </div>
             </form>
         </div>
@@ -401,7 +424,7 @@
                             <option value="Frigo Réactifs (2-8°C)">Frigo Réactifs (2-8°C)</option>
                         </select>
                     </div>
-                    <div class="form-group"><label>Date de Péremption</label><input type="date" id="ent-peremption" required></div>
+                    <div class="form-group"><label>Date de Péremption Spécifiée</label><input type="date" id="ent-peremption" required></div>
                 </div>
 
                 <div class="form-group">
@@ -442,6 +465,32 @@
         </div>
     </div>
 
+    <!-- MODALE 4 : CRÉATION EMPLOYÉ (ADMIN) -->
+    <div id="modalEmploye" class="modal">
+        <div class="modal-content">
+            <h3 style="color:var(--primary); margin-top:0;">Création d'un NOUVEAU Compte Employé</h3>
+            <form onsubmit="ajouterEmploye(event)">
+                <div class="form-group"><label>Identifiant (ex: dupont)</label><input type="text" id="emp-key" placeholder="dupont" required></div>
+                <div class="form-group"><label>Nom & Prénom</label><input type="text" id="emp-nom" placeholder="DUPONT Jean" required></div>
+                <div class="form-group"><label>Fonction / Poste</label><input type="text" id="emp-fonction" placeholder="Analyste Chimie" required></div>
+                <div class="form-group"><label>E-mail Institutionnel</label><input type="email" id="emp-email" placeholder="jdupont@ancq.bj" required></div>
+                <div class="form-group">
+                    <label>Niveau de Signature dans le Circuit</label>
+                    <select id="emp-etape">
+                        <option value="0">Aucun (Utilisateur standard / Paillasse)</option>
+                        <option value="1">Niveau 1 (Directeur DCQPS / DCQE)</option>
+                        <option value="2">Niveau 2 (DAF)</option>
+                        <option value="3">Niveau 3 (Directeur Général)</option>
+                    </select>
+                </div>
+                <div style="text-align: right; margin-top:1rem;">
+                    <button type="button" class="btn btn-secondary" onclick="fermerModales()">Annuler</button>
+                    <button type="submit" class="btn btn-purple">Créer l'Employé</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // DICTIONNAIRE DES PICTOGRAMMES HSE
         const DICT_SGH = {
@@ -455,9 +504,10 @@
             "GHS09": { label: "Environnement", class: "sgh-info" }
         };
 
-        // BASE UTILISATEURS
-        const COMPTES = {
+        // BASE UTILISATEURS MIS À JOUR AVEC HAHOUANDJINOU HÉLÈNE (CCSMQ)
+        let COMPTES = {
             "domingo":   { nom: "DOMINGO AHOKPOSSI Aloyimi", fonction: "Responsable Stock", email: "mahokpossi@ancq.bj", etapeSigner: 0 },
+            "hahouandjinou": { nom: "HAHOUANDJINOU Hélène", fonction: "CCSMQ - Gestionnaire Comptes", email: "hahouandjinou@gouv.bj", etapeSigner: 0, isAdmin: true },
             "adjagboni": { nom: "ADJAGBONI Aristide", fonction: "Chef Service Physico-chimie", email: "aadjagboni@ancq.bj", etapeSigner: 0 },
             "bio":       { nom: "BIO BAKARY Aïssatou", fonction: "Chef Service Dispositif Médicaux", email: "abakary@ancq.bj", etapeSigner: 0 },
             "aglossi":   { nom: "AGLOSSI Maxime*", fonction: "Chef Division Analyses Physico-chimiques", email: "maglossi@ancq.bj", etapeSigner: 0 },
@@ -469,12 +519,11 @@
             "adjakidje": { nom: "ADJAKIDJE Parfait", fonction: "Directeur DCQPS", email: "parfaitadjakidje@yahoo.fr", etapeSigner: 1 },
             "daouda":    { nom: "DAOUDA Mohammed", fonction: "Directeur DCQE", email: "modaouda@gouv.bj", etapeSigner: 1 },
             "sokpin":    { nom: "SOKPIN Mathieu", fonction: "Directeur Administration & Finances", email: "msokpin@ancq.bj", etapeSigner: 2 },
-            "yemoa":     { nom: "YEMOA Achille", fonction: "Directeur Général", email: "ayemoa@gouv.bj", etapeSigner: 3 }
+            "yemoa":     { nom: "YEMOA Achille", fonction: "Directeur Général", email: "ayemoa@gouv.bj", etapeSigner: 3, isAdmin: true }
         };
 
         let userConnecte = null;
 
-        // DONNÉES STOCK CENTRAL AVEC DATES
         let PRODUITS = [
             { id: "R001", nom: "Acide Chlorhydrique 0.1M", cas: "7647-01-0", qte: 5, lieu: "Armoire Ventilée Acides", hse: ["SGH05"], lot: "LOT-2026-HC01", peremption: "2026-09-15" },
             { id: "R002", nom: "Ammoniaque 25%", cas: "1336-21-6", qte: 3, lieu: "Armoire Ventilée Acides", hse: ["SGH06", "SGH05", "GHS01"], lot: "LOT2026-A", peremption: "2026-08-25" },
@@ -482,28 +531,9 @@
             { id: "R004", nom: "Sulfate de Sodium Anhydre", cas: "7757-82-6", qte: 12, lieu: "Étagère Réactifs Neutres", hse: [], lot: "LOT2026-S", peremption: "2028-12-31" }
         ];
 
-        // DONNÉES DU JOURNAL DE TRAÇABILITÉ GÉNÉRAL (CONFORME À L'IMAGE DE RÉFÉRENCE)
         let JOURNAL = [
-            {
-                horodatage: "2026-01-10 08:00",
-                type: "ENTRÉE",
-                reactif: "Acide Chlorhydrique 0.1M",
-                quantite: "+10 flacons",
-                stockAvantApres: "0 → 10",
-                technicien: "Dr K. SOSSOU",
-                analyse: "Réception Stock",
-                validation: "Système Auto"
-            },
-            {
-                horodatage: "2026-08-01 09:30",
-                type: "SORTIE",
-                reactif: "Acide Chlorhydrique 0.1M",
-                quantite: "-5 flacons",
-                stockAvantApres: "10 → 5",
-                technicien: "M. DOSSOU",
-                analyse: "Titrage Acide-Base",
-                validation: "Validé par Resp. Labo (E-mail)"
-            }
+            { horodatage: "2026-01-10 08:00", type: "ENTRÉE", reactif: "Acide Chlorhydrique 0.1M", quantite: "+10 flacons", stockAvantApres: "0 → 10", technicien: "Dr K. SOSSOU", analyse: "Réception Stock", validation: "Système Auto" },
+            { horodatage: "2026-08-01 09:30", type: "SORTIE", reactif: "Acide Chlorhydrique 0.1M", quantite: "-5 flacons", stockAvantApres: "10 → 5", technicien: "M. DOSSOU", analyse: "Titrage Acide-Base", validation: "Validé par Resp. Labo (E-mail)" }
         ];
 
         let DEMANDES = [
@@ -522,24 +552,52 @@
             }
         ];
 
+        // BASE PAILLASSE MISE À JOUR AVEC PRÉLÈVEMENT ET PÉREMPTION APPRÈS OUVERTURE
         let PAILLASSE = [
             {
                 id: "P-001",
                 reactif: "Acide Chlorhydrique 0.1M",
                 lot: "LOT-2026-HC01",
                 analyste: "M. DOSSOU",
-                dateOuverture: "01/08/2026 09:35",
-                dateFin: "En cours",
+                datePrelevement: "01/08/2026 09:35",
+                qtePrelevee: "50 mL",
+                peremptionOuverture: "31/08/2026",
+                analyse: "Titrage Acide-Base Lot B42",
                 observation: "Utilisé pour la série de titrages physico-chimiques du lot B42.",
                 estOuvert: true
             }
         ];
 
+        function initialiserSelectConnexion() {
+            const sel = document.getElementById('login-user-select');
+            sel.innerHTML = `
+                <optgroup label="Saisie des Entrées & Administration">
+                    <option value="domingo">DOMINGO AHOKPOSSI Aloyimi — Responsable Stock</option>
+                    <option value="hahouandjinou">HAHOUANDJINOU Hélène — CCSMQ</option>
+                    <option value="yemoa">YEMOA Achille — Directeur Général</option>
+                </optgroup>
+                <optgroup label="Expression de Besoin / Utilisateurs Paillasse">
+                    <option value="adjagboni">ADJAGBONI Aristide — C/S Physico-chimie</option>
+                    <option value="bio">BIO BAKARY Aïssatou — C/S Dispositif Médicaux</option>
+                    <option value="aglossi">AGLOSSI Maxime* — C/D Analyses Physico-chimiques</option>
+                    <option value="dasilva">Da-SILVA Karimath — C/D Analyses Pharmacotechniques</option>
+                    <option value="ologou">OLOGOU Prisca* — Analyste</option>
+                    <option value="degbo">DEGBO Diane — Analyste</option>
+                    <option value="doussoh">DOUSSOH Ulrich — Analyste</option>
+                    <option value="wekpon">WEKPON Honorat — Analyste</option>
+                </optgroup>
+                <optgroup label="Validation des Sorties">
+                    <option value="adjakidje">ADJAKIDJE Parfait — Directeur DCQPS (1er Niv.)</option>
+                    <option value="daouda">DAOUDA Mohammed — Directeur DCQE (1er Niv.)</option>
+                    <option value="sokpin">SOKPIN Mathieu — Dir. Admin & Finances (2ème Niv.)</option>
+                </optgroup>
+            `;
+        }
+
         function estCritique(listeHse) {
             return listeHse.some(code => ["SGH06", "SGH08", "GHS01"].includes(code));
         }
 
-        // CALCUL DES DATES DE PÉREMPTION ET ALERTES
         function calculerEtatPeremption(dateStr) {
             const aujourdhui = new Date();
             const expDate = new Date(dateStr);
@@ -547,17 +605,19 @@
             const diffJours = Math.ceil(diffTemps / (1000 * 60 * 60 * 24));
 
             if (diffJours < 0) {
-                return { status: "EXPIRED", label: `🔴 Périmé (${Math.abs(diffJours)}j)`, class: "exp-expired", jours: diffJours };
+                return { status: "EXPIRED", label: `🔴 Périmé (${Math.abs(diffJours)}j)`, class: "exp-expired" };
             } else if (diffJours <= 60) {
-                return { status: "ALERT", label: `🟠 Expire dans ${diffJours}j`, class: "exp-alert", jours: diffJours };
+                return { status: "ALERT", label: `🟠 Expire dans ${diffJours}j`, class: "exp-alert" };
             } else {
-                return { status: "OK", label: `🟢 Valide (${diffJours}j)`, class: "exp-ok", jours: diffJours };
+                return { status: "OK", label: `🟢 Valide (${diffJours}j)`, class: "exp-ok" };
             }
         }
 
         function majIdentifiantAuto() {
             const val = document.getElementById('login-user-select').value;
-            document.getElementById('login-email').value = COMPTES[val].email;
+            if (COMPTES[val]) {
+                document.getElementById('login-email').value = COMPTES[val].email;
+            }
         }
 
         function authentifierUtilisateur(e) {
@@ -583,8 +643,15 @@
 
         function appliquerRestrictionsInterface() {
             const isStockMgr = (userConnecte.nom === "DOMINGO AHOKPOSSI Aloyimi");
+            const isAdmin = userConnecte.isAdmin === true;
+
             document.querySelectorAll('.role-stock').forEach(el => {
                 if (!isStockMgr) el.classList.add('role-hidden');
+                else el.classList.remove('role-hidden');
+            });
+
+            document.querySelectorAll('.role-admin').forEach(el => {
+                if (!isAdmin) el.classList.add('role-hidden');
                 else el.classList.remove('role-hidden');
             });
         }
@@ -597,7 +664,6 @@
         }
 
         function chargerDonnees() {
-            // CALCUL DES METRIQUES DYNAMIQUES DU DAF / STOCK
             let nbPerimes = 0;
             let nbAlerte = 0;
 
@@ -613,31 +679,39 @@
             document.getElementById('kpi-critique').innerText = PRODUITS.filter(p => estCritique(p.hse)).length;
             document.getElementById('kpi-mouvements').innerText = JOURNAL.length;
 
-            // RENDU DU JOURNAL DE TRAÇABILITÉ GÉNÉRAL
             filtrerJournal();
 
-            // RENDU PAILLASSE
+            // RENDU TAB 2 : PAILLASSE AVEC PRÉLÈVEMENT ET FILTRE PAR ANALYSE
+            const filterAnalyse = document.getElementById('paillasse-filter-analyse').value.toLowerCase();
+            const filterReactif = document.getElementById('paillasse-filter-reactif').value.toLowerCase();
+            
             const tbodyPail = document.getElementById('table-paillasse');
             tbodyPail.innerHTML = '';
-            PAILLASSE.forEach(p => {
+            
+            PAILLASSE.filter(p => p.analyse.toLowerCase().includes(filterAnalyse) && p.reactif.toLowerCase().includes(filterReactif))
+            .forEach(p => {
                 let statusBadge = p.estOuvert ? 
-                    `<span style="color:#15803d; background:#dcfce7; padding:4px 8px; border-radius:4px; font-weight:bold;">🟢 En Usage Paillasse</span>` : 
-                    `<span style="color:#b91c1c; background:#fee2e2; padding:4px 8px; border-radius:4px; font-weight:bold;">🔴 Clôturé / Terminé</span>`;
+                    `<span style="color:#15803d; background:#dcfce7; padding:4px 8px; border-radius:4px; font-weight:bold;">🟢 Flacon Ouvert</span>` : 
+                    `<span style="color:#b91c1c; background:#fee2e2; padding:4px 8px; border-radius:4px; font-weight:bold;">🔴 Terminé / Clôturé</span>`;
 
                 let btnCloturer = p.estOuvert ? 
-                    `<br><button class="btn btn-secondary" style="margin-top:5px; padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="cloturerFlacon('${p.id}')">🏁 Marquer comme Terminé</button>` : '';
+                    `<br><button class="btn btn-secondary" style="margin-top:5px; padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="cloturerFlacon('${p.id}')">🏁 Clôturer Flacon</button>` : '';
+
+                let btnEditObs = p.estOuvert ? 
+                    `<button class="btn btn-secondary" style="padding:0.1rem 0.4rem; font-size:0.7rem; margin-left:5px;" onclick="modifierObservation('${p.id}')">✏️ Modifier</button>` : '';
 
                 tbodyPail.innerHTML += `<tr>
                     <td><strong>${p.reactif}</strong><br><small style="color:gray;">Lot: ${p.lot}</small></td>
                     <td>👤 <strong>${p.analyste}</strong></td>
-                    <td>🕒 ${p.dateOuverture}</td>
-                    <td>${p.dateFin === 'En cours' ? '<i>- Non clôturé -</i>' : '🕒 ' + p.dateFin}</td>
-                    <td><div style="max-width:280px; font-size:0.82rem;">${p.observation}</div></td>
+                    <td><b>Prélèvement :</b> ${p.datePrelevement}<br><span style="color:#c2410c;"><b>Péremption Ouverture :</b> ${p.peremptionOuverture}</span></td>
+                    <td><strong>${p.qtePrelevee}</strong></td>
+                    <td><span style="background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:4px; font-size:0.8rem; font-weight:bold;">${p.analyse}</span></td>
+                    <td><div style="max-width:240px; font-size:0.82rem;">${p.observation} ${btnEditObs}</div></td>
                     <td>${statusBadge} ${btnCloturer}</td>
                 </tr>`;
             });
 
-            // RENDU CIRCUIT VALIDATION
+            // RENDU TAB 3 : CIRCUIT DE VALIDATION + PDF DE DÉCHARGE
             const tbodyDem = document.getElementById('table-demandes');
             tbodyDem.innerHTML = '';
             DEMANDES.forEach(d => {
@@ -662,7 +736,10 @@
                         btnAction = `<span style="font-size:0.8rem; color:#c2410c; background:#ffedd5; padding:4px 8px; border-radius:4px; border:1px solid #fdba74;">⏳ Bloqué chez :<br><strong>${responsableAttendu}</strong></span>`;
                     }
                 } else {
-                    btnAction = `<span style="color:var(--success); font-weight:bold; font-size:0.9rem;">✅ Sortie Approuvée & Enregistrée</span>`;
+                    btnAction = `
+                        <span style="color:var(--success); font-weight:bold; font-size:0.85rem; display:block; margin-bottom:5px;">✅ Sortie Approuvée</span>
+                        <button class="btn btn-purple" style="padding:0.3rem 0.6rem; font-size:0.78rem;" onclick="genererPDFDecharge('${d.id}')">📄 Télécharger Bon de Décharge (PDF)</button>
+                    `;
                 }
 
                 tbodyDem.innerHTML += `<tr>
@@ -674,29 +751,25 @@
                 </tr>`;
             });
 
-            // RENDU INVENTAIRE DE STOCK CENTRAL & ALERTES PÉREMPTION
+            // RENDU TAB 4 : CATALOGUE STOCK
             const filterExp = document.getElementById('filter-exp').value;
             const filterSgh = document.getElementById('filter-sgh').value;
             const sortVal = document.getElementById('sort-reactif').value;
-            
             const tbodyProd = document.getElementById('table-produits');
             tbodyProd.innerHTML = '';
 
             let listFiltrée = [...PRODUITS];
 
-            // FILTRE PÉREMPTION
             if (filterExp !== 'ALL') {
                 listFiltrée = listFiltrée.filter(p => calculerEtatPeremption(p.peremption).status === filterExp);
             }
 
-            // FILTRE DANGEROSITÉ
             if (filterSgh === 'CRITICAL') {
                 listFiltrée = listFiltrée.filter(p => estCritique(p.hse));
             } else if (filterSgh !== 'ALL') {
                 listFiltrée = listFiltrée.filter(p => p.hse.includes(filterSgh));
             }
 
-            // TRI DYNAMIQUE
             if (sortVal === 'EXP_ASC') {
                 listFiltrée.sort((a, b) => new Date(a.peremption) - new Date(b.peremption));
             } else if (sortVal === 'DANGER_DESC') {
@@ -724,12 +797,84 @@
                     <td>${badgesHse}</td>
                     <td>Lot: <strong>${p.lot}</strong><br><small>Péremption: ${p.peremption}</small></td>
                     <td><span class="badge-exp ${infoExp.class}">${infoExp.label}</span></td>
-                    <td><button class="btn btn-purple" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="ouvrirModalPaillasseRapide('${p.nom}', '${p.lot}')">🧪 Utiliser</button></td>
+                    <td><button class="btn btn-purple" style="padding:0.25rem 0.5rem; font-size:0.75rem;" onclick="ouvrirModalPaillasseRapide('${p.nom}', '${p.lot}')">🧪 Prélever</button></td>
+                </tr>`;
+            });
+
+            // RENDU TAB 5 : ADMINISTRATION DES EMPLOYÉS
+            const tbodyEmp = document.getElementById('table-employes');
+            tbodyEmp.innerHTML = '';
+            Object.keys(COMPTES).forEach(key => {
+                const c = COMPTES[key];
+                tbodyEmp.innerHTML += `<tr>
+                    <td><code>${key}</code></td>
+                    <td><strong>${c.nom}</strong></td>
+                    <td>${c.fonction}</td>
+                    <td>${c.email}</td>
+                    <td><span class="badge-sgh" style="background:#475569;">Niveau ${c.etapeSigner}</span></td>
+                    <td>
+                        <button class="btn btn-danger" style="padding:0.2rem 0.5rem; font-size:0.75rem;" onclick="supprimerEmploye('${key}')">❌ Supprimer</button>
+                    </td>
                 </tr>`;
             });
         }
 
-        // MOTEUR DE RECHERCHE JOURNAL DE TRAÇABILITÉ
+        // FONCTION DE GÉNÉRATION AUTOMATIQUE DU PDF DE DÉCHARGE
+        function genererPDFDecharge(idDemande) {
+            const d = DEMANDES.find(item => item.id === idDemande);
+            if (!d) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(16);
+            doc.setTextColor(30, 58, 138); // Couleur Primaire
+            doc.text("AGENCE NATIONALE DE CONTRÔLE QUALITÉ (ANCQ)", 15, 20);
+            
+            doc.setFontSize(12);
+            doc.setTextColor(15, 23, 42);
+            doc.text("BON DE DÉCHARGE DE SORTIE DE STOCK", 15, 30);
+            doc.line(15, 33, 195, 33);
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.text(`Référence Demande : ${d.id}`, 15, 45);
+            doc.text(`Date d'Émission : ${d.date}`, 15, 52);
+            doc.text(`Demandeur : ${d.demandeur}`, 15, 59);
+
+            doc.setFillColor(241, 245, 249);
+            doc.rect(15, 68, 180, 25, "F");
+
+            doc.setFont("helvetica", "bold");
+            doc.text("DÉTAIL DU PRODUIT SORTI :", 20, 76);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Réactif : ${d.reactif}`, 20, 83);
+            doc.text(`Quantité prélevée du stock : ${d.qte}`, 20, 89);
+
+            doc.setFont("helvetica", "bold");
+            doc.text("HISTORIQUE DES APPROBATIONS & SIGNATURES :", 15, 105);
+            
+            let y = 115;
+            d.signatures.forEach(s => {
+                doc.setFont("helvetica", "normal");
+                doc.text(`• ${s.titre} : VALIDÉ`, 20, y);
+                doc.setFontSize(9);
+                doc.setTextColor(100);
+                doc.text(`Signé par : ${s.par} le ${s.horodatage}`, 25, y + 5);
+                doc.setFontSize(10);
+                doc.setTextColor(0);
+                y += 15;
+            });
+
+            doc.line(15, y + 5, 195, y + 5);
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(9);
+            doc.text("Ce document vaut bon de décharge officiel pour le Gestionnaire de Stock Central.", 15, y + 15);
+
+            doc.save(`Bon_Decharge_${d.id}.pdf`);
+        }
+
         function filtrerJournal() {
             const termTech = document.getElementById('journal-filter-tech').value.toLowerCase();
             const termReactif = document.getElementById('journal-filter-reactif').value.toLowerCase();
@@ -744,7 +889,7 @@
             });
 
             if (journalFiltré.length === 0) {
-                tbodyJournal.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#64748b; padding:1.5rem;">Aucun mouvement trouvé correspondant aux critères de recherche.</td></tr>`;
+                tbodyJournal.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#64748b; padding:1.5rem;">Aucun mouvement trouvé correspondant aux critères.</td></tr>`;
                 return;
             }
 
@@ -769,7 +914,7 @@
             filtrerJournal();
         }
 
-        // ACTIONS UTILISATEURS
+        // ACTIONS UTILISATEURS PAILLASSE
         function ouvrirModalPaillasse() {
             const selProd = document.getElementById('pail-select-prod');
             selProd.innerHTML = '';
@@ -783,7 +928,7 @@
 
             const now = new Date();
             now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            document.getElementById('pail-date-ouverture').value = now.toISOString().slice(0, 16);
+            document.getElementById('pail-date-prelevement').value = now.toISOString().slice(0, 16);
             
             majLotAuto();
             document.getElementById('modalPaillasse').style.display = 'flex';
@@ -803,37 +948,53 @@
 
         function enregistrerOuverturePaillasse(e) {
             e.preventDefault();
-            const dateOuvert = new Date(document.getElementById('pail-date-ouverture').value);
-            const dateFormatted = dateOuvert.toLocaleDateString('fr-FR') + ' ' + dateOuvert.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+            const datePrel = new Date(document.getElementById('pail-date-prelevement').value);
+            const delaiJours = parseInt(document.getElementById('pail-delai-ouverture').value) || 30;
+            
+            const dateExpOuverture = new Date(datePrel);
+            dateExpOuverture.setDate(dateExpOuverture.getDate() + delaiJours);
+
+            const datePrelFormatted = datePrel.toLocaleDateString('fr-FR') + ' ' + datePrel.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
+            const dateExpFormatted = dateExpOuverture.toLocaleDateString('fr-FR');
 
             PAILLASSE.push({
                 id: "P-00" + (PAILLASSE.length + 1),
                 reactif: document.getElementById('pail-select-prod').value,
                 lot: document.getElementById('pail-lot').value,
                 analyste: document.getElementById('pail-analyste-select').value,
-                dateOuverture: dateFormatted,
-                dateFin: "En cours",
+                datePrelevement: datePrelFormatted,
+                qtePrelevee: document.getElementById('pail-qte').value,
+                peremptionOuverture: dateExpFormatted,
+                analyse: document.getElementById('pail-analyse').value,
                 observation: document.getElementById('pail-observation').value || "Aucune observation.",
                 estOuvert: true
             });
 
             fermerModales();
             chargerDonnees();
-            alert("✅ Ouverture enregistrée dans le registre paillasse.");
+            alert("✅ Enregistrement et calcul de la péremption après ouverture effectués.");
+        }
+
+        function modifierObservation(idPail) {
+            const p = PAILLASSE.find(item => item.id === idPail);
+            if (p && p.estOuvert) {
+                const nouvelleObs = prompt("Modifier l'observation pour ce flacon :", p.observation);
+                if (nouvelleObs !== null) {
+                    p.observation = nouvelleObs;
+                    chargerDonnees();
+                }
+            }
         }
 
         function cloturerFlacon(idPail) {
             const p = PAILLASSE.find(item => item.id === idPail);
             if(p) {
-                const now = new Date();
-                p.dateFin = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
                 p.estOuvert = false;
                 chargerDonnees();
-                alert(`🏁 Flacon de ${p.reactif} clôturé.`);
+                alert(`🏁 Flacon de ${p.reactif} clôturé. Les observations ne sont plus modifiables.`);
             }
         }
 
-        // VALIDATION CIRCUIT ET MIGRATION AUTOMATIQUE VERS LE JOURNAL DE TRAÇABILITÉ
         function signerDemande(idDemande) {
             const d = DEMANDES.find(item => item.id === idDemande);
             if (d && userConnecte.etapeSigner === d.etapeActuelle) {
@@ -846,7 +1007,6 @@
                 s.horodatage = nowIso;
                 d.etapeActuelle++;
 
-                // SI LA VALIDATION FINALE EST ATTEINTE -> MISE À JOUR DU STOCK + IMPUTATION AU JOURNAL
                 if (d.etapeActuelle > 3) {
                     const prod = PRODUITS.find(p => p.nom === d.reactif);
                     const qteRetiree = parseInt(d.qte) || 1;
@@ -896,7 +1056,6 @@
             alert("📤 Expression de besoin soumise dans le circuit de validation.");
         }
 
-        // ENREGISTREMENT ENTRÉE ET CREATION MOUVEMENT JOURNAL
         function enregistrerNouveauProduit(e) {
             e.preventDefault();
             
@@ -943,7 +1102,46 @@
 
             fermerModales();
             chargerDonnees();
-            alert("✅ Entrée de réactif enregistrée et répercutée dans le Journal de Traçabilité Général.");
+            alert("✅ Entrée de réactif enregistrée.");
+        }
+
+        // ADMINISTRATION DE L'EMPLOYÉ
+        function ouvrirModalEmploye() {
+            document.getElementById('modalEmploye').style.display = 'flex';
+        }
+
+        function ajouterEmploye(e) {
+            e.preventDefault();
+            const key = document.getElementById('emp-key').value.trim().toLowerCase();
+            if (COMPTES[key]) {
+                alert("Cet identifiant existe déjà !");
+                return;
+            }
+
+            COMPTES[key] = {
+                nom: document.getElementById('emp-nom').value,
+                fonction: document.getElementById('emp-fonction').value,
+                email: document.getElementById('emp-email').value,
+                etapeSigner: parseInt(document.getElementById('emp-etape').value)
+            };
+
+            initialiserSelectConnexion();
+            fermerModales();
+            chargerDonnees();
+            alert(`✅ Compte de ${COMPTES[key].nom} créé avec succès.`);
+        }
+
+        function supprimerEmploye(key) {
+            if (key === "yemoa" || key === "hahouandjinou") {
+                alert("Impossible de supprimer un compte Administrateur principal.");
+                return;
+            }
+
+            if (confirm(`Voulez-vous vraiment supprimer l'employé ${COMPTES[key].nom} ?`)) {
+                delete COMPTES[key];
+                initialiserSelectConnexion();
+                chargerDonnees();
+            }
         }
 
         function ouvrirModalEntree() { document.getElementById('modalEntree').style.display = 'flex'; }
@@ -959,7 +1157,11 @@
             document.getElementById('modalPaillasse').style.display = 'none';
             document.getElementById('modalEntree').style.display = 'none';
             document.getElementById('modalDemande').style.display = 'none';
+            document.getElementById('modalEmploye').style.display = 'none';
         }
+
+        // INITIALISATION
+        initialiserSelectConnexion();
     </script>
 </body>
 </html>
